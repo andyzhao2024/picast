@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>picast · 影院放映</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="player.css" />
+</head>
+<body>
+  <!-- 影院幕布区 -->
+  <div id="stage" class="stage" tabindex="0" aria-label="picast stage">
+    <img id="frame" alt="slideshow image" />
+    <div id="hud" class="hud hidden" aria-hidden="true"></div>
+  </div>
+
+  <!-- 控制面板（非全屏可见） -->
+  <div id="panel" class="panel">
+    <h1>picast</h1>
+    <p class="muted">选择图片文件夹 → 点击“开始放映” → 进入影院模式</p>
+
+    <div class="row">
+      <button id="pickDirBtn">选择图片文件夹</button>
+      <label class="inline">
+        <input type="checkbox" id="recursiveChk" checked />
+        包含子文件夹
+      </label>
+    </div>
+
+    <div class="row">
+      <label>
+        自动播放间隔（秒）：
+        <input id="intervalInput" type="number" min="0.5" step="0.5" value="3" />
+      </label>
+      <button id="startBtn" disabled>开始放映</button>
+    </div>
+
+    <!-- 自动/手动放大设置 -->
+    <div class="row">
+      <label class="inline">
+        <input type="checkbox" id="autoFitChk" checked />
+        自动优化放大
+      </label>
+
+      <label style="display:flex;align-items:center;gap:8px;">
+        Max scale:
+        <input id="maxScaleRange" type="range" min="1" max="4" step="0.1" value="1.5" />
+        <span id="maxScaleLabel">1.5×</span>
+      </label>
+
+      <label class="inline">
+        <input type="checkbox" id="pixelateChk" />
+        强制像素化放大
+      </label>
+    </div>
+
+    <!-- GIF 专用放大滑块（仅当当前为 GIF 时显示） -->
+    <div class="row" id="gifScaleRow" style="display:none; align-items:center; gap:12px;">
+      <label style="min-width:120px;">GIF 放大倍数：</label>
+      <input id="gifScaleRange" type="range" min="0.5" max="6" step="0.1" value="1.0" />
+      <span id="gifScaleLabel">1.0×</span>
+      <label style="margin-left:12px; color:var(--muted); font-size:13px;">（保持长宽比）</label>
+    </div>
+
+    <div id="status" class="status">尚未选择文件夹</div>
+
+    <div class="tips">
+      <h3>快捷键</h3>
+      <ul>
+        <li><b>Space 空格</b>：暂停 / 继续（单击）；双击空格退出全屏</li>
+        <li><b>←</b>：上一张并继续自动播放</li>
+        <li><b>→</b>：下一张并继续自动播放</li>
+        <li><b>Esc</b>：退出全屏</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="player.js"></script>
+</body>
+</html>

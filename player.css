@@ -1,0 +1,117 @@
+:root {
+  --bg: #000;
+  --fg: #ddd;
+  --muted: #8a8a8a;
+  --accent: #3aa3ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft Yahei", sans-serif;
+}
+
+/* 影院幕布区域（全屏时仅此可见） */
+.stage {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: none;
+}
+
+.stage img {
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity 180ms linear;
+  display: block;
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  background: #000;
+}
+
+/* 像素化风格 */
+#frame.pixelated {
+  image-rendering: pixelated;
+}
+
+/* 临时 HUD（显示索引/提示） */
+.hud {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  font-size: 14px;
+}
+.hidden { display: none; }
+
+/* 控制面板（非全屏时） */
+.panel {
+  position: relative;
+  max-width: 920px;
+  margin: 6vh auto;
+  padding: 24px;
+  background: #0c0c0c;
+  border: 1px solid #1a1a1a;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.panel h1 { margin: 0 0 8px; letter-spacing: 0.5px; }
+.muted { color: var(--muted); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+button, input[type="number"], input[type="range"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  background: #111;
+  color: var(--fg);
+  outline: none;
+}
+
+/* 滑块样式宽度 */
+input[type="range"] { width: 160px; }
+
+.status { margin-top: 10px; color: var(--muted); }
+
+.tips h3 { margin-bottom: 8px; }
+.tips ul { margin: 0; padding-left: 20px; color: var(--muted); }
+
+/* GIF 滑块行微调 */
+#gifScaleRow input[type="range"] { width: 220px; }
+#gifScaleRow #gifScaleLabel { min-width: 48px; display:inline-block; margin-left:8px; text-align:left; }
+/* 影院纯净模式 —— 覆盖可能的默认样式，确保全屏只显示图片与黑色背景 */
+:root, html, body, #stage {
+  background: #000 !important;
+}
+
+/* 取消 focus 轮廓 / 边框，避免键盘操作时出现可见 outline */
+*:focus { outline: none !important; box-shadow: none !important; }
+
+/* 防止滚动条或其它元素显示（额外保险） */
+html, body { overflow: hidden; }
+
