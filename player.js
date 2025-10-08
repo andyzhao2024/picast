@@ -182,15 +182,43 @@ function applyOptimalSizing(naturalW, naturalH, isGif){
     frame.style.margin = `${margin}px 0`;
 }
 
+// 添加新的辅助函数，用于计算GIF目标尺寸
+function calculateGifTargetSize(naturalW, naturalH) {
+    // 将目标尺寸从毫米转换为像素
+    const targetWidth = mmToPixels(200);  // 200mm
+    const targetHeight = mmToPixels(150); // 150mm
+    
+    const isWide = naturalW > naturalH;
+    let scale;
+    
+    if (isWide) {
+        // 宽度优先，缩放到200mm宽
+        scale = targetWidth / naturalW;
+    } else {
+        // 高度优先，缩放到150mm高
+        scale = targetHeight / naturalH;
+    }
+    
+    return {
+        width: Math.round(naturalW * scale),
+        height: Math.round(naturalH * scale)
+    };
+}
+
 // 修改 applyGifScale 函数
 function applyGifScale(naturalW, naturalH, scale) {
     const { vw, vh } = viewportSize();
     const margin = mmToPixels(10);
-    let targetW = Math.round(naturalW * scale);
-    let targetH = Math.round(naturalH * scale);
+    const availableHeight = vh - (margin * 2);
+    
+    // 计算目标尺寸
+    const targetSize = calculateGifTargetSize(naturalW, naturalH);
+    let targetW = targetSize.width;
+    let targetH = targetSize.height;
 
-    if (targetW > vw || targetH > vh) {
-        const r = Math.min(vw / targetW, vh / targetH);
+    // 确保不超出可视区域
+    if (targetW > vw || targetH > availableHeight) {
+        const r = Math.min(vw / targetW, availableHeight / targetH);
         targetW = Math.round(targetW * r);
         targetH = Math.round(targetH * r);
     }
@@ -200,8 +228,11 @@ function applyGifScale(naturalW, naturalH, scale) {
     frame.style.objectFit = "contain";
     frame.style.margin = `${margin}px 0`;
 
-    if (pixelateChk.checked) frame.classList.add("pixelated");
-    else frame.classList.remove("pixelated");
+    if (pixelateChk.checked) {
+        frame.classList.add("pixelated");
+    } else {
+        frame.classList.remove("pixelated");
+    }
 }
 
 // =================== 展示图片与稳定播放逻辑 ===================
