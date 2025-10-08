@@ -120,30 +120,44 @@ function savePrefs(){
     });
 }
 
+// 添加 mmToPixels 辅助函数
+function mmToPixels(mm) {
+    // 标准 DPI 下的毫米到像素转换 (96 DPI = 96/25.4 pixels per mm)
+    return Math.round((96/25.4) * mm);
+}
+
 // =================== 放大/尺寸计算助手 ===================
+// 修改 fitImageDefault 函数
 function fitImageDefault(){
+    const margin = mmToPixels(10);
     frame.style.width = "";
     frame.style.height = "";
     frame.style.maxWidth = "100vw";
-    frame.style.maxHeight = "100vh";
+    frame.style.maxHeight = `calc(100vh - ${margin * 2}px)`;
     frame.style.objectFit = "contain";
+    frame.style.margin = `${margin}px 0`;
 }
 
+// 修改 viewportSize 函数
 function viewportSize(){
+    const margin = mmToPixels(10); // 10mm 边距
     return {
         vw: Math.max(window.innerWidth || document.documentElement.clientWidth, 1),
-        vh: Math.max(window.innerHeight || document.documentElement.clientHeight, 1)
+        vh: Math.max(window.innerHeight || document.documentElement.clientHeight, 1) - (margin * 2)
     };
 }
 
+// 修改 applyOptimalSizing 函数
 function applyOptimalSizing(naturalW, naturalH, isGif){
     if(!autoFitChk.checked || !naturalW || !naturalH){
-        if(pixelateChk.checked && isGif) frame.classList.add("pixelated"); else frame.classList.remove("pixelated");
+        if(pixelateChk.checked && isGif) frame.classList.add("pixelated"); 
+        else frame.classList.remove("pixelated");
         fitImageDefault();
         return;
     }
 
     const { vw, vh } = viewportSize();
+    const margin = mmToPixels(10);
     const baseScale = Math.min(vw / naturalW, vh / naturalH);
 
     if (baseScale < 1) {
@@ -154,7 +168,8 @@ function applyOptimalSizing(naturalW, naturalH, isGif){
 
     const targetScale = Math.min(baseScale, userMaxScale);
     const shouldPixelate = (isGif && (pixelateChk.checked || targetScale > 1.2));
-    if (shouldPixelate) frame.classList.add("pixelated"); else frame.classList.remove("pixelated");
+    if (shouldPixelate) frame.classList.add("pixelated"); 
+    else frame.classList.remove("pixelated");
 
     const targetW = Math.round(naturalW * targetScale);
     const targetH = Math.round(naturalH * targetScale);
@@ -164,11 +179,13 @@ function applyOptimalSizing(naturalW, naturalH, isGif){
     frame.style.maxWidth = "";
     frame.style.maxHeight = "";
     frame.style.objectFit = "contain";
+    frame.style.margin = `${margin}px 0`;
 }
 
-// GIF 专用：根据用户设置的 userGifScale 应用（保持长宽比并不超出视窗）
+// 修改 applyGifScale 函数
 function applyGifScale(naturalW, naturalH, scale) {
     const { vw, vh } = viewportSize();
+    const margin = mmToPixels(10);
     let targetW = Math.round(naturalW * scale);
     let targetH = Math.round(naturalH * scale);
 
@@ -181,6 +198,7 @@ function applyGifScale(naturalW, naturalH, scale) {
     frame.style.width = targetW + "px";
     frame.style.height = targetH + "px";
     frame.style.objectFit = "contain";
+    frame.style.margin = `${margin}px 0`;
 
     if (pixelateChk.checked) frame.classList.add("pixelated");
     else frame.classList.remove("pixelated");
