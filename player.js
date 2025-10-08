@@ -7,6 +7,8 @@ let isPlaying = true;
 let direction = 1;
 let intervalMs = 3000;
 let spaceLastTime = 0;
+let currentLoadingPromise = null; // 用于跟踪当前图片加载状态
+let preloadedImages = new Map(); // 用于存储预加载的图片
 
 // DOM元素
 const stage = document.getElementById("stage");
@@ -57,31 +59,44 @@ async function enterFullscreen(){ if(!document.fullscreenElement) await stage.re
 async function exitFullscreen(){ if(document.fullscreenElement) await document.exitFullscreen().catch(()=>{}); }
 
 // =================== 目录选择与扫描 ===================
-async function pickDirectory(){
-    try{
-        handles.length=0;
-        showStatus("等待目录选择…");
-        const dirHandle = await window.showDirectoryPicker({mode:"read"});
-        showStatus("扫描图片…");
+async function pickDirectory() {
+    try {
+        handles.length = 0;
+        showStatus("等待目录选择...");
+        const dirHandle = await window.showDirectoryPicker();
+        
+        showStatus("扫描图片...");
         await enumerateDir(dirHandle, recursiveChk.checked);
         handles.sort(naturalSortByName);
-        if(handles.length===0){ startBtn.disabled=true; showStatus("未发现图片。"); }
-        else{ startBtn.disabled=false; showStatus(`已发现 ${handles.length} 张图片`); }
-    }catch(e){
-        if(e && e.name==="AbortError") return;
-        startBtn.disabled=true;
+        
+        if (handles.length === 0) {
+            startBtn.disabled = true;
+            showStatus("未发现图片。");
+        } else {
+            startBtn.disabled = false;
+            showStatus(`已发现 ${handles.length} 张图片`);
+        }
+    } catch(e) {
+        console.error('Directory selection error:', e);
+        if (e.name === "AbortError") return;
+        startBtn.disabled = true;
         showStatus("未选取目录或没有访问权限。");
     }
 }
 
-async function enumerateDir(dirHandle, recursive){
-    for await(const [name,entry] of dirHandle.entries()){
-        if(entry.kind==="file" && isImageName(name)){
+async function enumerateDir(dirHandle, recursive) {
+    for await(const [name, entry] of dirHandle.entries()) {
+        if(entry.kind === "file" && isImageName(name)) {
             const file = await entry.getFile();
             const url = URL.createObjectURL(file);
-            handles.push({name,url,fileHandle:entry,lastModified:file.lastModified});
-        } else if(entry.kind==="directory" && recursive){
-            await enumerateDir(entry,true);
+            handles.push({
+                name,
+                url,
+                fileHandle: entry,
+                lastModified: file.lastModified
+            });
+        } else if(entry.kind === "directory" && recursive) {
+            await enumerateDir(entry, true);
         }
     }
 }
@@ -172,71 +187,53 @@ function applyGifScale(naturalW, naturalH, scale) {
 }
 
 // =================== 展示图片与稳定播放逻辑 ===================
-function showAt(i){
+async function showAt(i) {
     if(!handles[i]) return;
     idx = (i + handles.length) % handles.length;
     const item = handles[idx];
-
-    if(frame.dataset.url) try{ URL.revokeObjectURL(frame.dataset.url); }catch(e){}
+    
     frame.src = item.url;
-    frame.dataset.url = item.url;
+    
+    // 应用尺寸
+    const nw = frame.naturalWidth || frame.width;
+    const nh = frame.naturalHeight || frame.height;
+    const isGif = extOf(item.name) === ".gif";
 
-    fitImageDefault();
+    // 推荐 value 并在用户未手动修改时自动应用
+    const suggested = suggestMaxScaleBySize(nw, nh);
+    if(!userAdjustedMaxScale) {
+        userMaxScale = suggested;
+        maxScaleRange.value = String(userMaxScale);
+        maxScaleLabel.textContent = userMaxScale.toFixed(1) + "×";
+    }
 
-    frame.onload = () => {
-        const nw = frame.naturalWidth || frame.width;
-        const nh = frame.naturalHeight || frame.height;
-        const isGif = extOf(item.name) === ".gif";
-
-        // 推荐 value 并在用户未手动修改时自动应用
-        const suggested = suggestMaxScaleBySize(nw, nh);
-        if(!userAdjustedMaxScale) {
-            userMaxScale = suggested;
-            maxScaleRange.value = String(userMaxScale);
-            maxScaleLabel.textContent = userMaxScale.toFixed(1) + "×";
-            savePrefs();
-            showHUD(`建议 maxScale: ${userMaxScale.toFixed(1)}×（已自动应用）`, 1400);
-        } else {
-            showHUD(`建议 maxScale: ${suggested.toFixed(1)}×（当前 ${userMaxScale.toFixed(1)}×）`, 1400);
-        }
-
-        // GIF 专用滑块显示/初始化
-        if (isGif) {
-            gifScaleRow.style.display = "flex";
-            if (!gifScaleLockedByUser) {
-                // 默认建议给 gif 的 slider：baseScale 或 userMaxScale 二者之间
-                const { vw, vh } = viewportSize();
-                const baseScale = Math.min(vw / nw, vh / nh);
-                const init = baseScale < 1 ? 1.0 : Math.min(baseScale, userMaxScale || 1.5);
-                userGifScale = Math.max(parseFloat(gifScaleRange.min), Math.min(init, parseFloat(gifScaleRange.max)));
-                gifScaleRange.value = String(userGifScale);
-                gifScaleLabel.textContent = userGifScale.toFixed(1) + "×";
-            } else {
-                gifScaleRange.value = String(userGifScale);
-                gifScaleLabel.textContent = userGifScale.toFixed(1) + "×";
-            }
-            // 应用 GIF 专用放大
-            applyGifScale(nw, nh, userGifScale);
-        } else {
-            gifScaleRow.style.display = "none";
-            frame.classList.remove("pixelated");
-            applyOptimalSizing(nw, nh, false);
-        }
-
-        showHUD(`${idx+1}/${handles.length} · ${item.name}`, 900);
-    };
-
-    frame.onerror = () => {
-        showHUD(`无法加载：${item.name}`, 1200);
-    };
+    if(isGif) {
+        applyGifScale(nw, nh, userGifScale);
+    } else {
+        applyOptimalSizing(nw, nh, isGif);
+    }
 }
 
-function scheduleNext(){
+async function scheduleNext() {
+    if(!isPlaying || handles.length === 0) return;
     clearTimeout(timer);
-    if(!isPlaying || handles.length===0) return;
+    
     idx = (idx + direction + handles.length) % handles.length;
-    showAt(idx);
-    timer = setTimeout(scheduleNext, intervalMs);
+    await showAt(idx);
+    
+    if(isPlaying) {
+        timer = setTimeout(scheduleNext, intervalMs);
+    }
+}
+
+function cleanup() {
+    handles.forEach(item => {
+        if(item.url) {
+            URL.revokeObjectURL(item.url);
+        }
+    });
+    handles = [];
+    preloadedImages.clear();
 }
 
 function play(dir=1){
@@ -326,22 +323,48 @@ startBtn.addEventListener("click", async ()=>{
 });
 
 // 键盘控制（空格单击暂停/继续；双空格退出）
-window.addEventListener("keydown", e=>{
+window.addEventListener("keydown", e => {
     if(panel.style.display !== "none") return;
     if(!handles.length) return;
 
-    if(e.code === "Space"){
+    if(e.code === "Space") {
         const now = Date.now();
-        if(now - spaceLastTime < 350){ exitFullscreen(); spaceLastTime = 0; e.preventDefault(); return; }
+        if(now - spaceLastTime < 350) {
+            exitFullscreen();
+            return;
+        }
         spaceLastTime = now;
         isPlaying = !isPlaying;
-        if(isPlaying) scheduleNext(); else pauseAuto();
+        if(isPlaying) {
+            timer = setTimeout(scheduleNext, intervalMs);
+        } else {
+            clearTimeout(timer);
+        }
         e.preventDefault();
         return;
     }
 
-    if(e.code === "ArrowRight"){ idx = (idx+1)%handles.length; showAt(idx); if(isPlaying) scheduleNext(); e.preventDefault(); }
-    if(e.code === "ArrowLeft") { idx = (idx-1+handles.length)%handles.length; showAt(idx); if(isPlaying) scheduleNext(); e.preventDefault(); }
+    if(e.code === "ArrowLeft") {
+        clearTimeout(timer);
+        direction = -1;
+        idx = (idx - 1 + handles.length) % handles.length;
+        showAt(idx);
+        if(isPlaying) {
+            timer = setTimeout(scheduleNext, intervalMs);
+        }
+        e.preventDefault();
+    }
+
+    if(e.code === "ArrowRight") {
+        clearTimeout(timer);
+        direction = 1;
+        idx = (idx + 1) % handles.length;
+        showAt(idx);
+        if(isPlaying) {
+            timer = setTimeout(scheduleNext, intervalMs);
+        }
+        e.preventDefault();
+    }
 });
 
 // 鼠标隐藏（影院体验）
@@ -354,7 +377,11 @@ stage.addEventListener("mousemove", () => {
 
 // 全屏变化
 document.addEventListener("fullscreenchange", () => {
-    if(!document.fullscreenElement) { pauseAuto(); panel.style.display = "block"; }
+    if(!document.fullscreenElement) { 
+        pauseAuto(); 
+        panel.style.display = "block";
+        cleanup();
+    }
 });
 
 // 页面隐藏/显示
@@ -385,6 +412,9 @@ window.addEventListener("resize", () => {
         }
     }
 });
+
+// 在页面卸载时清理
+window.addEventListener("unload", cleanup);
 
 // 初始化 UI（读取 prefs）
 (async () => {
